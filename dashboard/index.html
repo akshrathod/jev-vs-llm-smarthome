@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Smart Home Hub Benchmark Dashboard</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <header class="topbar">
+        <div>
+          <h1>Smart Home Hub Benchmark</h1>
+          <p>System A LLM decisions vs System B Jev decisions with fallback badges.</p>
+        </div>
+        <label class="file-button">
+          Load JSON
+          <input id="file-input" type="file" accept="application/json" />
+        </label>
+      </header>
+
+      <section class="controls">
+        <button id="prev" type="button">Prev</button>
+        <button id="play" type="button">Play</button>
+        <button id="next" type="button">Next</button>
+        <span id="event-label">No run loaded</span>
+      </section>
+
+      <section class="plans">
+        <article class="system" data-system="A">
+          <h2>System A</h2>
+          <div class="floor-plan" id="plan-A"></div>
+          <pre id="details-A"></pre>
+        </article>
+        <article class="system" data-system="B">
+          <h2>System B</h2>
+          <div class="floor-plan" id="plan-B"></div>
+          <pre id="details-B"></pre>
+        </article>
+      </section>
+
+      <section class="summary">
+        <h2>Summary</h2>
+        <pre id="summary">Load a benchmark JSON file to begin.</pre>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,190 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1d252c;
+  background: #f5f7f8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.topbar,
+.controls,
+.plans,
+.summary {
+  margin-bottom: 18px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 720;
+}
+
+h2 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+p {
+  color: #61707d;
+  margin-top: 6px;
+}
+
+.file-button,
+button {
+  border: 1px solid #b8c2cc;
+  background: #ffffff;
+  color: #1d252c;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.file-button input {
+  display: none;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#event-label {
+  color: #40505d;
+  margin-left: 8px;
+}
+
+.plans {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.system,
+.summary {
+  background: #ffffff;
+  border: 1px solid #d9e0e6;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.floor-plan {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 118px);
+  gap: 8px;
+}
+
+.room {
+  border: 1px solid #bac6d0;
+  border-radius: 6px;
+  padding: 10px;
+  background: #f9fbfc;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.room.active {
+  border-color: #23846d;
+  background: #edf8f5;
+}
+
+.room.alert {
+  border-color: #b93232;
+  background: #fff1f1;
+}
+
+.room-name {
+  font-weight: 680;
+}
+
+.icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  background: #e6ebef;
+  color: #293741;
+  font-size: 15px;
+}
+
+.icon.on {
+  background: #ffe08a;
+}
+
+.icon.cool {
+  background: #b9e5ff;
+}
+
+.icon.locked {
+  background: #c8eadf;
+}
+
+.fallback {
+  align-self: flex-start;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: #26313a;
+  color: white;
+}
+
+pre {
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #344551;
+}
+
+@media (max-width: 760px) {
+  main {
+    padding: 14px;
+  }
+
+  .topbar,
+  .plans {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .floor-plan {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "note": "Synthetic, hand-written home commands for the Smart Home Hub benchmark. expected_agents is the author's own rough guess, for sanity-checking only.",
+  "events": [
+    {"id": 1, "text": "It's too bright in the living room.", "expected_agents": ["lighting"]},
+    {"id": 2, "text": "Lock up the house for the night.", "expected_agents": ["security"]},
+    {"id": 3, "text": "I'm cold in the bedroom, can you warm it up?", "expected_agents": ["climate"]},
+    {"id": 4, "text": "We're leaving for the weekend, set everything to away mode.", "expected_agents": ["lighting", "climate", "security", "appliances"]}
+  ]
+}

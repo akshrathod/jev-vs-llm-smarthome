@@ -2,39 +2,53 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypedDict
 
-AgentName = Literal["lighting", "climate", "security", "appliances"]
 SystemName = Literal["A", "B"]
+TargetDomain = Literal["climate", "lighting", "security", "appliance", "none"]
 
-RELEVANCE = ("relevant", "not_relevant")
-ACTION_CATEGORIES = ("adjust", "turn_on", "turn_off", "no_action")
-LOG_CHOICES = ("needs_log", "no_log")
-HOME_STATES = ("normal", "away_mode", "night_mode", "alert")
+TARGET_DOMAINS = ("climate", "lighting", "security", "appliance", "none")
+CLIMATE_ROOMS = ("living_room", "bedroom")
+CLIMATE_TARGET_TEMPERATURES = ("65", "68", "72", "75", "78")
+LIGHTING_ROOMS = ("living_room", "bedroom", "kitchen", "entrance")
+LIGHTING_BRIGHTNESS = ("off", "25", "50", "75", "100")
+SECURITY_DOORS = ("entrance_front_door", "kitchen_back_door")
+LOCK_STATES = ("locked", "unlocked")
+APPLIANCES = ("fridge", "microwave", "stove")
+APPLIANCE_ACTIONS = ("start", "stop")
 
 
 class Event(TypedDict, total=False):
     id: int
     text: str
-    expected_agents: list[str]
+    expected: dict[str, Any]
 
 
 class CostLatency(TypedDict):
     latency_ms: float
     cost_usd: float
+    retried: bool
 
 
 class DecisionField(TypedDict):
     value: str
     confidence: float | None
+    confidence_threshold: float | None
     used_llm_fallback: bool
     fallback_changed_outcome: bool | None
     raw_jev_value: str | None
 
 
-class AgentDecision(TypedDict):
-    relevant: DecisionField
-    tool_to_call: DecisionField
-    action_category: DecisionField
-    needs_written_log: DecisionField
+class SupervisorDecision(TypedDict):
+    target_domain: DecisionField
+
+
+class DomainDecision(TypedDict, total=False):
+    target_room: DecisionField
+    action: DecisionField
+    state: DecisionField
+    brightness: DecisionField
+    target_temperature: DecisionField
+    door: DecisionField
+    appliance: DecisionField
 
 
 class ToolRecord(TypedDict):
@@ -42,17 +56,12 @@ class ToolRecord(TypedDict):
     output: dict[str, Any] | None
 
 
-class AgentRun(TypedDict):
-    decision: AgentDecision
-    tool: ToolRecord
-    confirmation: str | None
-
-
 class BenchmarkRecord(TypedDict):
     event: Event
     system: SystemName
-    agents: dict[str, AgentRun]
-    overall_home_state: DecisionField
+    supervisor: SupervisorDecision
+    domain: TargetDomain
+    domain_decision: DomainDecision | None
+    tool: ToolRecord
     latency_cost: dict[str, CostLatency]
     final_confirmation: str
-

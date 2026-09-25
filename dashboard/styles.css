@@ -72,7 +72,15 @@ button {
 .controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.speed-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #40505d;
 }
 
 #event-label {
@@ -94,10 +102,31 @@ button {
   padding: 14px;
 }
 
+.system-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.system-heading span {
+  color: #23846d;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.event-line {
+  min-height: 40px;
+  color: #40505d;
+  font-size: 13px;
+  line-height: 1.35;
+  margin-bottom: 10px;
+}
+
 .floor-plan {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 118px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, 150px);
   gap: 8px;
 }
 
@@ -127,32 +156,43 @@ button {
 }
 
 .icons {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
 
-.icon {
-  width: 28px;
-  height: 28px;
+.agent {
+  min-height: 52px;
   border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: #e8edf1;
+  color: #293741;
+  font-size: 12px;
+  text-align: center;
+  padding: 5px;
+  overflow: hidden;
+}
+
+.agent.active {
+  background: #d9efe8;
+  border: 1px solid #7ab9a6;
+}
+
+.bulb {
+  --level: 0%;
+  --glow: 0px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
-  background: #e6ebef;
-  color: #293741;
-  font-size: 15px;
-}
-
-.icon.on {
-  background: #ffe08a;
-}
-
-.icon.cool {
-  background: #b9e5ff;
-}
-
-.icon.locked {
-  background: #c8eadf;
+  background:
+    radial-gradient(circle, rgba(255, 222, 92, 0.95) 0 var(--level), #d5dce2 var(--level) 100%);
+  box-shadow: 0 0 var(--glow) rgba(255, 198, 41, 0.85);
 }
 
 .fallback {
@@ -165,9 +205,8 @@ button {
   color: white;
 }
 
-pre {
+.details {
   margin: 12px 0 0;
-  white-space: pre-wrap;
   font-size: 12px;
   line-height: 1.45;
   color: #344551;
@@ -185,6 +224,7 @@ pre {
   }
 
   .floor-plan {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
   }
 }

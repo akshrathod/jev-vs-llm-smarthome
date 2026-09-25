@@ -20,28 +20,40 @@
       </header>
 
       <section class="controls">
-        <button id="prev" type="button">Prev</button>
         <button id="play" type="button">Play</button>
-        <button id="next" type="button">Next</button>
+        <button id="reset" type="button">Reset</button>
+        <label class="speed-control">
+          Speed
+          <input id="speed" type="range" min="1" max="50" step="1" value="2" />
+          <span id="speed-value">2x</span>
+        </label>
         <span id="event-label">No run loaded</span>
       </section>
 
       <section class="plans">
         <article class="system" data-system="A">
-          <h2>System A</h2>
+          <div class="system-heading">
+            <h2>System A</h2>
+            <span id="elapsed-A">0 ms</span>
+          </div>
+          <div class="event-line" id="event-A">No record loaded</div>
           <div class="floor-plan" id="plan-A"></div>
-          <pre id="details-A"></pre>
+          <div class="details" id="details-A"></div>
         </article>
         <article class="system" data-system="B">
-          <h2>System B</h2>
+          <div class="system-heading">
+            <h2>System B</h2>
+            <span id="elapsed-B">0 ms</span>
+          </div>
+          <div class="event-line" id="event-B">No record loaded</div>
           <div class="floor-plan" id="plan-B"></div>
-          <pre id="details-B"></pre>
+          <div class="details" id="details-B"></div>
         </article>
       </section>
 
       <section class="summary">
         <h2>Summary</h2>
-        <pre id="summary">Load a benchmark JSON file to begin.</pre>
+        <div class="details" id="summary">Load a benchmark JSON file to begin.</div>
       </section>
     </main>
     <script src="app.js"></script>

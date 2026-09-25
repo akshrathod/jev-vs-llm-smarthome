@@ -2,36 +2,156 @@ from __future__ import annotations
 
 from typing import Any
 
-from .agents import AGENTS, agent_tool_names
 from .openrouter import OpenRouterClient
-from .types import ACTION_CATEGORIES, HOME_STATES, LOG_CHOICES, RELEVANCE, AgentDecision, DecisionField, Event
+from .tools import get_ambient_light_sensor, get_room_temperature
+from .types import (
+    APPLIANCE_ACTIONS,
+    APPLIANCES,
+    CLIMATE_TARGET_TEMPERATURES,
+    CLIMATE_ROOMS,
+    LIGHTING_ROOMS,
+    LIGHTING_BRIGHTNESS,
+    LOCK_STATES,
+    SECURITY_DOORS,
+    TARGET_DOMAINS,
+    DecisionField,
+    DomainDecision,
+    Event,
+    SupervisorDecision,
+    TargetDomain,
+)
 
-FALLBACK_CONFIDENCE_THRESHOLD = 0.6
+SUPERVISOR_CONFIDENCE_THRESHOLD = 0.65
+DOMAIN_CONFIDENCE_THRESHOLDS = {
+    "security": 0.8,
+    "climate": 0.65,
+    "appliance": 0.65,
+    "lighting": 0.5,
+}
 
 
-def _field(value: str, confidence: float | None, fallback: bool = False, changed: bool | None = None, raw: str | None = None) -> DecisionField:
+def _field(
+    value: str,
+    confidence: float | None,
+    threshold: float | None = None,
+    raw: str | None = None,
+    fallback: bool = False,
+    changed: bool | None = None,
+) -> DecisionField:
     return {
         "value": value,
         "confidence": confidence,
+        "confidence_threshold": threshold,
         "used_llm_fallback": fallback,
         "fallback_changed_outcome": changed,
         "raw_jev_value": raw,
     }
 
 
-def _empty_metrics() -> dict[str, dict[str, float]]:
+def empty_metrics() -> dict[str, dict[str, float]]:
     return {
-        "decision_layer": {"latency_ms": 0.0, "cost_usd": 0.0},
-        "fallback_layer": {"latency_ms": 0.0, "cost_usd": 0.0},
-        "generation_layer": {"latency_ms": 0.0, "cost_usd": 0.0},
-        "tool_layer": {"latency_ms": 0.0, "cost_usd": 0.0},
+        "decision_layer": {"latency_ms": 0.0, "cost_usd": 0.0, "retried": False},
+        "fallback_layer": {"latency_ms": 0.0, "cost_usd": 0.0, "retried": False},
+        "tool_layer": {"latency_ms": 0.0, "cost_usd": 0.0, "retried": False},
     }
+
+
+def _add_metric(metrics: dict[str, dict[str, Any]], bucket: str, latency: float, cost: float, retried: bool = False) -> None:
+    metrics[bucket]["latency_ms"] += latency
+    metrics[bucket]["cost_usd"] += cost
+    metrics[bucket]["retried"] = bool(metrics[bucket].get("retried") or retried)
+
+
+def _supervisor_question(event: Event) -> dict[str, dict[str, object]]:
+    return {
+        "target_domain": {
+            "type": "choice",
+            "instructions": f"Which single smart-home domain should handle this event: '{event['text']}'?",
+            "options": list(TARGET_DOMAINS),
+        }
+    }
+
+
+def _domain_questions(domain: TargetDomain, event: Event) -> dict[str, dict[str, object]]:
+    text = event["text"]
+    if domain == "climate":
+        return {
+            "target_room": {
+                "type": "choice",
+                "instructions": f"For the climate command '{text}', which room should be adjusted?",
+                "options": list(CLIMATE_ROOMS),
+            },
+            "target_temperature": {
+                "type": "choice",
+                "instructions": f"For the climate command '{text}', what target temperature should the thermostat use?",
+                "options": list(CLIMATE_TARGET_TEMPERATURES),
+            },
+        }
+    if domain == "lighting":
+        return {
+            "target_room": {
+                "type": "choice",
+                "instructions": f"For the lighting command '{text}', which room should be changed?",
+                "options": list(LIGHTING_ROOMS),
+            },
+            "brightness": {
+                "type": "choice",
+                "instructions": f"For the lighting command '{text}', what brightness percentage should the light use?",
+                "options": list(LIGHTING_BRIGHTNESS),
+            },
+        }
+    if domain == "security":
+        return {
+            "door": {
+                "type": "choice",
+                "instructions": f"For the security command '{text}', which door should be locked or unlocked?",
+                "options": list(SECURITY_DOORS),
+            },
+            "state": {
+                "type": "choice",
+                "instructions": f"For the security command '{text}', should the door be locked or unlocked?",
+                "options": list(LOCK_STATES),
+            },
+        }
+    if domain == "appliance":
+        return {
+            "appliance": {
+                "type": "choice",
+                "instructions": f"For the appliance command '{text}', which appliance should be controlled?",
+                "options": list(APPLIANCES),
+            },
+            "action": {
+                "type": "choice",
+                "instructions": f"For the appliance command '{text}', should the appliance start or stop?",
+                "options": list(APPLIANCE_ACTIONS),
+            },
+        }
+    return {}
+
+
+def _domain_context(domain: TargetDomain, event: Event) -> str:
+    if domain == "lighting":
+        readings = [
+            f"{room}={get_ambient_light_sensor(room, event)['brightness']}%"
+            for room in LIGHTING_ROOMS
+        ]
+        return f"Current brightness readings: {', '.join(readings)}."
+    if domain == "climate":
+        readings = [
+            f"{room}={get_room_temperature(room, event)['temperature_f']}F"
+            for room in CLIMATE_ROOMS
+        ]
+        return f"Current temperature readings: {', '.join(readings)}."
+    return ""
 
 
 class DecisionLayer:
     system_name = "base"
 
-    def decide_agents(self, event: Event) -> tuple[dict[str, AgentDecision], DecisionField, dict[str, dict[str, float]]]:
+    def decide_supervisor(self, event: Event) -> tuple[SupervisorDecision, dict[str, dict[str, float]]]:
+        raise NotImplementedError
+
+    def decide_domain(self, domain: TargetDomain, event: Event) -> tuple[DomainDecision | None, dict[str, dict[str, float]]]:
         raise NotImplementedError
 
 
@@ -41,48 +161,37 @@ class LLMDecisionLayer(DecisionLayer):
     def __init__(self, client: OpenRouterClient) -> None:
         self.client = client
 
-    def decide_agents(self, event: Event) -> tuple[dict[str, AgentDecision], DecisionField, dict[str, dict[str, float]]]:
-        metrics = _empty_metrics()
-        schema_hint = {
-            agent: {
-                "relevant": list(RELEVANCE),
-                "tool_to_call": [*agent_tool_names(agent), "none"],
-                "action_category": list(ACTION_CATEGORIES),
-                "needs_written_log": list(LOG_CHOICES),
-            }
-            for agent in AGENTS
-        }
-        system = "You make structured smart-home routing decisions. Return strict JSON only."
-        user = (
-            f"Event: {event['text']}\n"
-            f"For every agent, choose exactly one value for each field from this schema:\n{schema_hint}\n"
-            f"Also choose overall_home_state from {list(HOME_STATES)} based on the event text. "
-            "Return JSON shaped as {\"agents\": {agent: {field: {\"value\": option, \"confidence\": number}}}, "
-            "\"overall_home_state\": {\"value\": option, \"confidence\": number}}."
+    def decide_supervisor(self, event: Event) -> tuple[SupervisorDecision, dict[str, dict[str, float]]]:
+        metrics = empty_metrics()
+        system = (
+            "You are a smart-home supervisor. Return strict JSON only. "
+            f"Choose target_domain from {list(TARGET_DOMAINS)}. "
+            'Return {"target_domain": {"value": one_option, "confidence": number}}.'
         )
-        data, latency, cost = self.client.chat_json(system, user)
-        metrics["decision_layer"]["latency_ms"] += latency
-        metrics["decision_layer"]["cost_usd"] += cost
-        return self._normalize_agent_decisions(data), self._normalize_overall_state(data), metrics
+        data, latency, cost, retried = self.client.chat_json(system, event["text"])
+        _add_metric(metrics, "decision_layer", latency, cost, retried)
+        value, confidence = _coerce_choice(data.get("target_domain"), TARGET_DOMAINS, "none")
+        return {"target_domain": _field(value, confidence)}, metrics
 
-    @staticmethod
-    def _normalize_agent_decisions(data: dict[str, Any]) -> dict[str, AgentDecision]:
-        source = data.get("agents", data)
-        normalized: dict[str, AgentDecision] = {}
-        for agent in AGENTS:
-            agent_data = source[agent]
-            normalized[agent] = {
-                "relevant": _field(agent_data["relevant"]["value"], float(agent_data["relevant"].get("confidence", 1.0))),
-                "tool_to_call": _field(agent_data["tool_to_call"]["value"], float(agent_data["tool_to_call"].get("confidence", 1.0))),
-                "action_category": _field(agent_data["action_category"]["value"], float(agent_data["action_category"].get("confidence", 1.0))),
-                "needs_written_log": _field(agent_data["needs_written_log"]["value"], float(agent_data["needs_written_log"].get("confidence", 1.0))),
-            }
-        return normalized
-
-    @staticmethod
-    def _normalize_overall_state(data: dict[str, Any]) -> DecisionField:
-        item = data["overall_home_state"]
-        return _field(str(item["value"]), float(item.get("confidence", 1.0)))
+    def decide_domain(self, domain: TargetDomain, event: Event) -> tuple[DomainDecision | None, dict[str, dict[str, float]]]:
+        metrics = empty_metrics()
+        questions = _domain_questions(domain, event)
+        if not questions:
+            return None, metrics
+        schema = {key: question["options"] for key, question in questions.items()}
+        context = _domain_context(domain, event)
+        system = (
+            f"You are the {domain} smart-home domain agent. Return strict JSON only. "
+            f"Choose exactly one value for each field from this schema: {schema}. "
+            'Return {field: {"value": one_option, "confidence": number}}.'
+        )
+        user = event["text"] if not context else f"{event['text']}\n{context}"
+        data, latency, cost, retried = self.client.chat_json(system, user)
+        _add_metric(metrics, "decision_layer", latency, cost, retried)
+        return {
+            key: _field(*_coerce_choice(data.get(key), tuple(str(option) for option in question["options"]), str(question["options"][0])))
+            for key, question in questions.items()
+        }, metrics
 
 
 class JevDecisionLayer(DecisionLayer):
@@ -91,78 +200,77 @@ class JevDecisionLayer(DecisionLayer):
     def __init__(self, client: OpenRouterClient) -> None:
         self.client = client
 
-    def decide_agents(self, event: Event) -> tuple[dict[str, AgentDecision], DecisionField, dict[str, dict[str, float]]]:
-        metrics = _empty_metrics()
-        questions = self._agent_questions(event)
-        answers, latency, cost, _raw = self.client.jev_choices(f"Smart-home command: {event['text']}", questions)
-        metrics["decision_layer"]["latency_ms"] += latency
-        metrics["decision_layer"]["cost_usd"] += cost
-        decisions: dict[str, AgentDecision] = {}
-        for agent in AGENTS:
-            decisions[agent] = {
-                "relevant": self._answer_field(f"{agent}_relevant", answers, questions, metrics),
-                "tool_to_call": self._answer_field(f"{agent}_tool_to_call", answers, questions, metrics),
-                "action_category": self._answer_field(f"{agent}_action_category", answers, questions, metrics),
-                "needs_written_log": self._answer_field(f"{agent}_needs_written_log", answers, questions, metrics),
-            }
-        overall = self._answer_field("overall_home_state", answers, questions, metrics)
-        return decisions, overall, metrics
+    def decide_supervisor(self, event: Event) -> tuple[SupervisorDecision, dict[str, dict[str, float]]]:
+        metrics = empty_metrics()
+        questions = _supervisor_question(event)
+        answers, latency, cost, retried, _raw = self.client.jev_choices(f"Smart-home event: {event['text']}", questions)
+        _add_metric(metrics, "decision_layer", latency, cost, retried)
+        field = self._jev_field("target_domain", answers, SUPERVISOR_CONFIDENCE_THRESHOLD)
+        self._apply_fallbacks({"target_domain": field}, questions, SUPERVISOR_CONFIDENCE_THRESHOLD, metrics)
+        return {"target_domain": field}, metrics
 
-    def _answer_field(
-        self,
-        key: str,
-        answers: dict[str, tuple[str, float]],
-        questions: dict[str, dict[str, object]],
-        metrics: dict[str, dict[str, float]],
-    ) -> DecisionField:
-        value, confidence = answers[key]
-        if confidence >= FALLBACK_CONFIDENCE_THRESHOLD:
-            return _field(value, confidence, False, None, value)
-        question = str(questions[key]["instructions"])
-        options = list(questions[key]["options"])
-        fallback_value, fallback_latency, fallback_cost = self._fallback_choice(question, options)
-        metrics["fallback_layer"]["latency_ms"] += fallback_latency
-        metrics["fallback_layer"]["cost_usd"] += fallback_cost
-        return _field(
-            fallback_value,
-            confidence,
-            True,
-            fallback_value != value,
-            value,
-        )
+    def decide_domain(self, domain: TargetDomain, event: Event) -> tuple[DomainDecision | None, dict[str, dict[str, float]]]:
+        metrics = empty_metrics()
+        questions = _domain_questions(domain, event)
+        if not questions:
+            return None, metrics
+        context = _domain_context(domain, event)
+        state = f"Smart-home event: {event['text']}"
+        if context:
+            state = f"{state}\n{context}"
+        answers, latency, cost, retried, _raw = self.client.jev_choices(state, questions)
+        _add_metric(metrics, "decision_layer", latency, cost, retried)
+        threshold = DOMAIN_CONFIDENCE_THRESHOLDS[domain]
+        decision = {key: self._jev_field(key, answers, threshold) for key in questions}
+        self._apply_fallbacks(decision, questions, threshold, metrics)
+        return decision, metrics
 
     @staticmethod
-    def _agent_questions(event: Event) -> dict[str, dict[str, object]]:
-        questions: dict[str, dict[str, object]] = {}
-        for agent in AGENTS:
-            read_tool, action_tool = agent_tool_names(agent)
-            questions[f"{agent}_relevant"] = {
-                "instructions": f"Is the {agent} agent relevant to this smart-home command: '{event['text']}'?",
-                "options": list(RELEVANCE),
-            }
-            questions[f"{agent}_tool_to_call"] = {
-                "instructions": f"For the {agent} agent handling command '{event['text']}', which tool should be called?",
-                "options": [read_tool, action_tool, "none"],
-            }
-            questions[f"{agent}_action_category"] = {
-                "instructions": f"For the {agent} agent handling command '{event['text']}', what action category applies?",
-                "options": list(ACTION_CATEGORIES),
-            }
-            questions[f"{agent}_needs_written_log"] = {
-                "instructions": f"Should the {agent} agent write a short confirmation log for command '{event['text']}'?",
-                "options": list(LOG_CHOICES),
-            }
-        questions["overall_home_state"] = {
-            "instructions": f"Given smart-home command '{event['text']}', choose the overall home state.",
-            "options": list(HOME_STATES),
-        }
-        return questions
+    def _jev_field(key: str, answers: dict[str, tuple[str, float]], threshold: float) -> DecisionField:
+        value, confidence = answers[key]
+        return _field(value, confidence, threshold, value)
 
-    def _fallback_choice(self, question: str, options: list[str]) -> tuple[str, float, float]:
-        system = "Answer a single structured decision as JSON only."
-        user = f"{question}\nOptions: {options}\nReturn {{\"value\": one_option}}."
-        data, latency, cost = self.client.chat_json(system, user)
-        value = str(data.get("value"))
-        if value not in options:
-            raise ValueError(f"Fallback returned invalid option {value!r}; expected one of {options}")
-        return value, latency, cost
+    def _apply_fallbacks(
+        self,
+        fields: dict[str, DecisionField],
+        questions: dict[str, dict[str, object]],
+        threshold: float,
+        metrics: dict[str, dict[str, float]],
+    ) -> None:
+        fallback_keys = [
+            key for key, field in fields.items()
+            if field["confidence"] is not None and field["confidence"] < threshold
+        ]
+        if not fallback_keys:
+            return
+        prompt_questions = {
+            key: {"question": questions[key]["instructions"], "options": questions[key]["options"]}
+            for key in fallback_keys
+        }
+        system = "Resolve low-confidence smart-home choices. Return strict JSON only."
+        user = f"Answer each question with exactly one option:\n{prompt_questions}\nReturn {{\"answers\": {{field_name: option}}}}."
+        data, latency, cost, retried = self.client.chat_json(system, user)
+        _add_metric(metrics, "fallback_layer", latency, cost, retried)
+        answers = data.get("answers", data)
+        for key in fallback_keys:
+            options = tuple(str(option) for option in questions[key]["options"])
+            fallback_value = str(answers.get(key))
+            if fallback_value not in options:
+                fallback_value = fields[key]["value"]
+            raw_value = fields[key]["value"]
+            fields[key]["value"] = fallback_value
+            fields[key]["used_llm_fallback"] = True
+            fields[key]["fallback_changed_outcome"] = fallback_value != raw_value
+
+
+def _coerce_choice(item: Any, options: tuple[str, ...], default: str) -> tuple[str, float]:
+    if isinstance(item, dict):
+        value = str(item.get("value", default))
+        confidence = float(item.get("confidence", 1.0))
+    else:
+        value = str(item if item is not None else default)
+        confidence = 1.0
+    if value not in options:
+        lowered = value.lower()
+        value = next((option for option in options if option in lowered), default)
+    return value, confidence

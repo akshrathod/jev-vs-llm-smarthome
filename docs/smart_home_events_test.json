@@ -1,0 +1,53 @@
+{
+  "note": "Synthetic, hand-written home commands for the Supervisor + Domain Agent benchmark. expected follows the new two-level schema. initial_state provides explicit per-event mocked sensor values.",
+  "events": [
+    {
+      "id": 1,
+      "text": "It's too bright in the living room.",
+      "initial_state": {
+        "lighting": {"living_room": 90, "bedroom": 40, "kitchen": 50, "entrance": 45},
+        "climate": {"living_room": 72, "bedroom": 70}
+      },
+      "expected": {
+        "target_domain": "lighting",
+        "domain_decision": {"target_room": "living_room", "brightness": "25"}
+      }
+    },
+    {
+      "id": 2,
+      "text": "Lock up the house for the night.",
+      "initial_state": {
+        "lighting": {"living_room": 35, "bedroom": 25, "kitchen": 20, "entrance": 30},
+        "climate": {"living_room": 70, "bedroom": 68}
+      },
+      "expected": {
+        "target_domain": "security",
+        "domain_decision": {"door": "entrance_front_door", "state": "locked"}
+      }
+    },
+    {
+      "id": 3,
+      "text": "I'm cold in the bedroom, can you warm it up?",
+      "initial_state": {
+        "lighting": {"living_room": 45, "bedroom": 35, "kitchen": 50, "entrance": 40},
+        "climate": {"living_room": 71, "bedroom": 62}
+      },
+      "expected": {
+        "target_domain": "climate",
+        "domain_decision": {"target_room": "bedroom", "target_temperature": "72"}
+      }
+    },
+    {
+      "id": 4,
+      "text": "We're leaving for the weekend, lock the front door.",
+      "initial_state": {
+        "lighting": {"living_room": 60, "bedroom": 45, "kitchen": 55, "entrance": 50},
+        "climate": {"living_room": 72, "bedroom": 70}
+      },
+      "expected": {
+        "target_domain": "security",
+        "domain_decision": {"door": "entrance_front_door", "state": "locked"}
+      }
+    }
+  ]
+}

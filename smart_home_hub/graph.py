@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import operator
 import time
 from typing import Annotated, Any, TypedDict
 
 from langgraph.graph import END, StateGraph
 
-from .agents import AGENTS, call_selected_tool
-from .decisions import DecisionLayer
-from .openrouter import OpenRouterClient
-from .types import AgentDecision, AgentName, BenchmarkRecord, DecisionField, Event
+from .agents import run_domain_tool
+from .decisions import DecisionLayer, empty_metrics
+from .types import BenchmarkRecord, DomainDecision, Event, SupervisorDecision, TargetDomain
 
 
 def _merge_metrics(left: dict[str, dict[str, float]], right: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
@@ -18,147 +16,100 @@ def _merge_metrics(left: dict[str, dict[str, float]], right: dict[str, dict[str,
         target = merged.setdefault(bucket, {"latency_ms": 0.0, "cost_usd": 0.0})
         target["latency_ms"] = target.get("latency_ms", 0.0) + values.get("latency_ms", 0.0)
         target["cost_usd"] = target.get("cost_usd", 0.0) + values.get("cost_usd", 0.0)
+        target["retried"] = bool(target.get("retried") or values.get("retried"))
     return merged
 
 
 class HubState(TypedDict):
     event: Event
-    decisions: dict[str, AgentDecision]
-    agent_runs: Annotated[dict[str, Any], operator.or_]
-    overall_home_state: DecisionField | None
+    supervisor: SupervisorDecision | None
+    domain: TargetDomain
+    domain_decision: DomainDecision | None
+    tool: dict[str, Any]
     final_confirmation: str
     metrics: Annotated[dict[str, dict[str, float]], _merge_metrics]
 
 
-def _empty_metrics() -> dict[str, dict[str, float]]:
-    return {
-        "decision_layer": {"latency_ms": 0.0, "cost_usd": 0.0},
-        "fallback_layer": {"latency_ms": 0.0, "cost_usd": 0.0},
-        "generation_layer": {"latency_ms": 0.0, "cost_usd": 0.0},
-        "tool_layer": {"latency_ms": 0.0, "cost_usd": 0.0},
-    }
-
-
-def _add_metrics(base: dict[str, dict[str, float]], extra: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
-    return _merge_metrics(base, extra)
-
-
-def build_graph(decision_layer: DecisionLayer, client: OpenRouterClient):
-    def decide_node(state: HubState) -> dict[str, Any]:
-        decisions, overall_home_state, metrics = decision_layer.decide_agents(state["event"])
+def build_graph(decision_layer: DecisionLayer):
+    def supervisor_node(state: HubState) -> dict[str, Any]:
+        supervisor, metrics = decision_layer.decide_supervisor(state["event"])
         return {
-            "decisions": decisions,
-            "overall_home_state": overall_home_state,
+            "supervisor": supervisor,
+            "domain": supervisor["target_domain"]["value"],
             "metrics": metrics,
         }
 
-    def route_relevant_agents(state: HubState) -> list[str]:
-        nodes = [
-            f"{agent}_agent"
-            for agent, decision in state["decisions"].items()
-            if decision["relevant"]["value"] == "relevant"
-        ]
-        return nodes or ["aggregate_node"]
+    def route_domain(state: HubState) -> str:
+        domain = state["domain"]
+        if domain == "none":
+            return "aggregate_node"
+        return f"{domain}_agent"
 
-    def make_agent_node(agent: AgentName):
-        def agent_node(state: HubState) -> dict[str, Any]:
-            event = state["event"]
-            decision = state["decisions"][agent]
-            tool_name = decision["tool_to_call"]["value"]
-            action_category = decision["action_category"]["value"]
+    def make_domain_node(domain: TargetDomain):
+        def domain_node(state: HubState) -> dict[str, Any]:
+            decision, decision_metrics = decision_layer.decide_domain(domain, state["event"])
             started = time.perf_counter()
-            tool_output = call_selected_tool(agent, tool_name, action_category, event["text"])
+            output, confirmation = run_domain_tool(domain, decision)
             tool_latency = (time.perf_counter() - started) * 1000
-            confirmation = None
-            metrics = _empty_metrics()
+            metrics = _merge_metrics(empty_metrics(), decision_metrics)
             metrics["tool_layer"]["latency_ms"] += tool_latency
-            if decision["needs_written_log"]["value"] == "needs_log":
-                confirmation, latency, cost = generate_confirmation(client, agent, event, decision, tool_output)
-                metrics["generation_layer"]["latency_ms"] += latency
-                metrics["generation_layer"]["cost_usd"] += cost
             return {
-                "agent_runs": {
-                    agent: {
-                        "decision": decision,
-                        "tool": {"tool": tool_name, "output": tool_output},
-                        "confirmation": confirmation,
-                    }
-                },
+                "domain_decision": decision,
+                "tool": {"tool": _tool_name(domain), "output": output},
+                "final_confirmation": confirmation,
                 "metrics": metrics,
             }
 
-        return agent_node
+        return domain_node
 
     def aggregate_node(state: HubState) -> dict[str, Any]:
-        confirmations = [
-            run["confirmation"]
-            for run in state["agent_runs"].values()
-            if run.get("confirmation")
-        ]
-        final_confirmation = " ".join(confirmations) if confirmations else "No specialist action was logged."
         return {
-            "overall_home_state": state["overall_home_state"],
-            "final_confirmation": final_confirmation,
-            "metrics": _empty_metrics(),
+            "final_confirmation": state["final_confirmation"] or "No smart-home action was taken.",
+            "metrics": empty_metrics(),
         }
 
     graph = StateGraph(HubState)
-    graph.add_node("decide_node", decide_node)
-    for agent in AGENTS:
-        graph.add_node(f"{agent}_agent", make_agent_node(agent))
+    graph.add_node("supervisor_node", supervisor_node)
+    for domain in ("climate", "lighting", "security", "appliance"):
+        graph.add_node(f"{domain}_agent", make_domain_node(domain))  # type: ignore[arg-type]
     graph.add_node("aggregate_node", aggregate_node)
-    graph.set_entry_point("decide_node")
-    graph.add_conditional_edges("decide_node", route_relevant_agents)
-    for agent in AGENTS:
-        graph.add_edge(f"{agent}_agent", "aggregate_node")
+    graph.set_entry_point("supervisor_node")
+    graph.add_conditional_edges("supervisor_node", route_domain)
+    for domain in ("climate", "lighting", "security", "appliance"):
+        graph.add_edge(f"{domain}_agent", "aggregate_node")
     graph.add_edge("aggregate_node", END)
     return graph.compile()
 
 
-def generate_confirmation(
-    client: OpenRouterClient,
-    agent: str,
-    event: Event,
-    decision: AgentDecision,
-    tool_output: dict[str, Any] | None,
-) -> tuple[str, float, float]:
-    system = "Write one short smart-home confirmation sentence. No JSON."
-    user = (
-        f"Command: {event['text']}\n"
-        f"Agent: {agent}\n"
-        f"Decision: {decision}\n"
-        f"Mocked tool output: {tool_output}\n"
-        "Write one concise confirmation sentence."
-    )
-    return client.chat_text(system, user)
+def _tool_name(domain: TargetDomain) -> str:
+    return {
+        "climate": "adjust_thermostat",
+        "lighting": "set_light",
+        "security": "set_door_lock",
+        "appliance": "control_appliance",
+        "none": "none",
+    }[domain]
 
 
-def run_event(event: Event, system: str, decision_layer: DecisionLayer, client: OpenRouterClient) -> BenchmarkRecord:
-    app = build_graph(decision_layer, client)
+def run_event(event: Event, system: str, decision_layer: DecisionLayer) -> BenchmarkRecord:
+    app = build_graph(decision_layer)
     initial: HubState = {
         "event": event,
-        "decisions": {},
-        "agent_runs": {},
-        "overall_home_state": None,
+        "supervisor": None,
+        "domain": "none",
+        "domain_decision": None,
+        "tool": {"tool": "none", "output": None},
         "final_confirmation": "",
-        "metrics": _empty_metrics(),
+        "metrics": empty_metrics(),
     }
     result = app.invoke(initial)
-    agents: dict[str, Any] = {}
-    for agent in AGENTS:
-        if agent in result["agent_runs"]:
-            agents[agent] = result["agent_runs"][agent]
-        else:
-            agents[agent] = {
-                "decision": result["decisions"][agent],
-                "tool": {"tool": "none", "output": None},
-                "confirmation": None,
-            }
     return {
         "event": event,
         "system": system,  # type: ignore[typeddict-item]
-        "agents": agents,
-        "overall_home_state": result["overall_home_state"],
+        "supervisor": result["supervisor"],
+        "domain": result["domain"],
+        "domain_decision": result["domain_decision"],
+        "tool": result["tool"],
         "latency_cost": result["metrics"],
         "final_confirmation": result["final_confirmation"],
     }

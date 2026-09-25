@@ -48,17 +48,19 @@ class OpenRouterClient:
             "X-Title": self.settings.app_name,
         }
 
-    def _post(self, url: str, payload: dict[str, Any]) -> tuple[dict[str, Any], float]:
+    def _post(self, url: str, payload: dict[str, Any]) -> tuple[dict[str, Any], float, bool]:
         started = time.perf_counter()
         try:
             response = self.session.post(url, headers=self._headers(), json=payload, timeout=60)
         except requests.RequestException as exc:
             raise OpenRouterError(f"OpenRouter request failed after retries: {exc}") from exc
         latency_ms = (time.perf_counter() - started) * 1000
+        retries = getattr(getattr(response, "raw", None), "retries", None)
+        retried = bool(getattr(retries, "history", None))
         if response.status_code >= 400:
             raise OpenRouterError(f"OpenRouter HTTP {response.status_code}: {response.text}")
         try:
-            return response.json(), latency_ms
+            return response.json(), latency_ms, retried
         except json.JSONDecodeError as exc:
             raise OpenRouterError(f"OpenRouter returned invalid JSON: {response.text}") from exc
 
@@ -71,55 +73,41 @@ class OpenRouterClient:
             return float(usage["total_cost"] or 0)
         return 0.0
 
-    def chat_json(self, system: str, user: str, model: str | None = None) -> tuple[dict[str, Any], float, float]:
+    def chat_json(self, system: str, user: str, model: str | None = None) -> tuple[dict[str, Any], float, float, bool]:
         payload = {
             "model": model or self.settings.chat_model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "response_format": {"type": "json_object"},
             "temperature": 0,
         }
-        response, latency_ms = self._post(self.settings.chat_url, payload)
+        response, latency_ms, retried = self._post(self.settings.chat_url, payload)
         content = response["choices"][0]["message"]["content"]
-        return json.loads(content), latency_ms, self.estimate_cost(response)
-
-    def chat_text(self, system: str, user: str, model: str | None = None) -> tuple[str, float, float]:
-        payload = {
-            "model": model or self.settings.chat_model,
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            "temperature": 0.2,
-        }
-        response, latency_ms = self._post(self.settings.chat_url, payload)
-        content = response["choices"][0]["message"]["content"].strip()
-        return content, latency_ms, self.estimate_cost(response)
-
-    def jev_choice(self, question: str, options: list[str]) -> tuple[str, float, float, float, dict[str, Any]]:
-        answers, latency_ms, cost, response = self.jev_choices(
-            question,
-            {"choice": {"instructions": "Choose the best option for the state.", "options": options}},
-        )
-        value, confidence = answers["choice"]
-        return value, confidence, latency_ms, cost, response
+        return json.loads(content), latency_ms, self.estimate_cost(response), retried
 
     def jev_choices(
         self,
         state: str,
         questions: dict[str, dict[str, object]],
-    ) -> tuple[dict[str, tuple[str, float]], float, float, dict[str, Any]]:
+    ) -> tuple[dict[str, tuple[str, float]], float, float, bool, dict[str, Any]]:
         payload = {
             "model": self.settings.jev_model,
             "state": state,
             "questions": {
-                key: {
-                    "type": "choice",
-                    "instructions": str(question["instructions"]),
-                    "criteria": {option: option for option in question["options"]},
-                }
+                key: self._format_jev_question(question)
                 for key, question in questions.items()
             },
         }
-        response, latency_ms = self._post(self.settings.decisions_url, payload)
+        response, latency_ms, retried = self._post(self.settings.decisions_url, payload)
         answers = self._parse_jev_choices(response, questions.keys())
-        return answers, latency_ms, self.estimate_cost(response), response
+        return answers, latency_ms, self.estimate_cost(response), retried, response
+
+    @staticmethod
+    def _format_jev_question(question: dict[str, object]) -> dict[str, object]:
+        return {
+            "type": "choice",
+            "instructions": str(question["instructions"]),
+            "criteria": {option: option for option in question["options"]},
+        }
 
     @staticmethod
     def _parse_jev_choice(response: dict[str, Any]) -> tuple[str, float]:
@@ -133,7 +121,9 @@ class OpenRouterClient:
         for item in candidates:
             if not item:
                 continue
-            value = item.get("choice") or item.get("value") or item.get("answer")
+            value = item.get("choice")
+            if value is None:
+                value = item.get("value") or item.get("answer")
             confidence = item.get("confidence")
             if value is not None:
                 return str(value), float(confidence if confidence is not None else 1.0)

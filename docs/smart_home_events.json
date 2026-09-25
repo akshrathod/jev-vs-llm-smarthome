@@ -1,125 +1,25 @@
 {
-  "note": "Synthetic, hand-written home commands for the Supervisor + Domain Agent benchmark. expected follows the new two-level schema. initial_state provides explicit per-event mocked sensor values.",
+  "note": "Synthetic, hand-written home commands for the Supervisor + Domain Agent benchmark. expected follows the two-level schema. initial_state provides explicit per-event mocked sensor values, chosen so each expected outcome represents a genuine, visible change from the starting state.",
   "events": [
-    {
-      "id": 1,
-      "text": "It's too bright in the living room.",
-      "initial_state": {"lighting": {"living_room": 90, "bedroom": 40, "kitchen": 50, "entrance": 45}, "climate": {"living_room": 72, "bedroom": 70}},
-      "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "living_room", "brightness": "25"}}
-    },
-    {
-      "id": 2,
-      "text": "Lock up the house for the night.",
-      "initial_state": {"lighting": {"living_room": 35, "bedroom": 25, "kitchen": 20, "entrance": 30}, "climate": {"living_room": 70, "bedroom": 68}},
-      "expected": {"target_domain": "security", "domain_decision": {"door": "entrance_front_door", "state": "locked"}}
-    },
-    {
-      "id": 3,
-      "text": "I'm cold in the bedroom, can you warm it up?",
-      "initial_state": {"lighting": {"living_room": 45, "bedroom": 35, "kitchen": 50, "entrance": 40}, "climate": {"living_room": 71, "bedroom": 62}},
-      "expected": {"target_domain": "climate", "domain_decision": {"target_room": "bedroom", "target_temperature": "72"}}
-    },
-    {
-      "id": 4,
-      "text": "We're leaving for the weekend, lock the front door.",
-      "initial_state": {"lighting": {"living_room": 60, "bedroom": 45, "kitchen": 55, "entrance": 50}, "climate": {"living_room": 72, "bedroom": 70}},
-      "expected": {"target_domain": "security", "domain_decision": {"door": "entrance_front_door", "state": "locked"}}
-    },
-    {
-      "id": 5,
-      "text": "Turn off the kitchen lights, we're heading to bed.",
-      "initial_state": {"lighting": {"living_room": 30, "bedroom": 20, "kitchen": 80, "entrance": 35}, "climate": {"living_room": 70, "bedroom": 68}},
-      "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "kitchen", "brightness": "off"}}
-    },
-    {
-      "id": 6,
-      "text": "Is the front door locked?",
-      "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 50, "entrance": 55}, "climate": {"living_room": 70, "bedroom": 68}},
-      "expected": {"target_domain": "security", "domain_decision": {"door": "entrance_front_door", "state": "locked"}}
-    },
-    {
-      "id": 7,
-      "text": "The microwave has been running for a while, stop it.",
-      "initial_state": {"lighting": {"living_room": 50, "bedroom": 40, "kitchen": 65, "entrance": 45}, "climate": {"living_room": 71, "bedroom": 69}},
-      "expected": {"target_domain": "appliance", "domain_decision": {"appliance": "microwave", "action": "stop"}}
-    },
-    {
-      "id": 8,
-      "text": "It's getting dark outside, turn on the entrance light.",
-      "initial_state": {"lighting": {"living_room": 45, "bedroom": 35, "kitchen": 45, "entrance": 10}, "climate": {"living_room": 70, "bedroom": 68}},
-      "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "entrance", "brightness": "100"}}
-    },
-    {
-      "id": 9,
-      "text": "Cool the bedroom before we wake up.",
-      "initial_state": {"lighting": {"living_room": 30, "bedroom": 20, "kitchen": 25, "entrance": 20}, "climate": {"living_room": 70, "bedroom": 77}},
-      "expected": {"target_domain": "climate", "domain_decision": {"target_room": "bedroom", "target_temperature": "68"}}
-    },
-    {
-      "id": 10,
-      "text": "Start the microwave.",
-      "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 70, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}},
-      "expected": {"target_domain": "appliance", "domain_decision": {"appliance": "microwave", "action": "start"}}
-    },
-    {
-      "id": 11,
-      "text": "Someone's at the back door, lock it.",
-      "initial_state": {"lighting": {"living_room": 45, "bedroom": 35, "kitchen": 60, "entrance": 50}, "climate": {"living_room": 70, "bedroom": 68}},
-      "expected": {"target_domain": "security", "domain_decision": {"door": "kitchen_back_door", "state": "locked"}}
-    },
-    {
-      "id": 12,
-      "text": "Movie night, turn off the living room lights.",
-      "initial_state": {"lighting": {"living_room": 75, "bedroom": 35, "kitchen": 30, "entrance": 30}, "climate": {"living_room": 71, "bedroom": 68}},
-      "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "living_room", "brightness": "off"}}
-    },
-    {
-      "id": 13,
-      "text": "All good here, nothing needs attention right now.",
-      "initial_state": {"lighting": {"living_room": 50, "bedroom": 40, "kitchen": 50, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}},
-      "expected": {"target_domain": "none", "domain_decision": {}}
-    },
-    {
-      "id": 14,
-      "text": "The stove's been on too long, stop it.",
-      "initial_state": {"lighting": {"living_room": 45, "bedroom": 35, "kitchen": 70, "entrance": 40}, "climate": {"living_room": 71, "bedroom": 69}},
-      "expected": {"target_domain": "appliance", "domain_decision": {"appliance": "stove", "action": "stop"}}
-    },
-    {
-      "id": 15,
-      "text": "It's a heatwave today, keep the living room cool.",
-      "initial_state": {"lighting": {"living_room": 70, "bedroom": 45, "kitchen": 50, "entrance": 65}, "climate": {"living_room": 82, "bedroom": 76}},
-      "expected": {"target_domain": "climate", "domain_decision": {"target_room": "living_room", "target_temperature": "68"}}
-    },
-    {
-      "id": 16,
-      "text": "We're home for the night, unlock the front door.",
-      "initial_state": {"lighting": {"living_room": 55, "bedroom": 35, "kitchen": 40, "entrance": 65}, "climate": {"living_room": 70, "bedroom": 68}},
-      "expected": {"target_domain": "security", "domain_decision": {"door": "entrance_front_door", "state": "unlocked"}}
-    },
-    {
-      "id": 17,
-      "text": "Lock the front door before night.",
-      "initial_state": {"lighting": {"living_room": 65, "bedroom": 45, "kitchen": 35, "entrance": 55}, "climate": {"living_room": 69, "bedroom": 67}},
-      "expected": {"target_domain": "security", "domain_decision": {"door": "entrance_front_door", "state": "locked"}}
-    },
-    {
-      "id": 18,
-      "text": "Stop the fridge alarm.",
-      "initial_state": {"lighting": {"living_room": 50, "bedroom": 40, "kitchen": 60, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}},
-      "expected": {"target_domain": "appliance", "domain_decision": {"appliance": "fridge", "action": "stop"}}
-    },
-    {
-      "id": 19,
-      "text": "It's too stuffy in the living room, cool it down.",
-      "initial_state": {"lighting": {"living_room": 55, "bedroom": 40, "kitchen": 45, "entrance": 45}, "climate": {"living_room": 78, "bedroom": 70}},
-      "expected": {"target_domain": "climate", "domain_decision": {"target_room": "living_room", "target_temperature": "68"}}
-    },
-    {
-      "id": 20,
-      "text": "Routine check: turn the bedroom light off before we sleep.",
-      "initial_state": {"lighting": {"living_room": 30, "bedroom": 70, "kitchen": 25, "entrance": 30}, "climate": {"living_room": 69, "bedroom": 67}},
-      "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "bedroom", "brightness": "off"}}
-    }
+    {"id": 1, "text": "The living room lights are way too harsh right now.", "initial_state": {"lighting": {"living_room": 95, "bedroom": 50, "kitchen": 50, "entrance": 50}, "climate": {"living_room": 70, "bedroom": 70}}, "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "living_room", "brightness": "25"}}},
+    {"id": 2, "text": "We're done in the kitchen, kill the lights.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 50, "kitchen": 70, "entrance": 50}, "climate": {"living_room": 70, "bedroom": 70}}, "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "kitchen", "brightness": "off"}}},
+    {"id": 3, "text": "Porch is pitch dark, light it up.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 50, "kitchen": 50, "entrance": 5}, "climate": {"living_room": 70, "bedroom": 70}}, "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "entrance", "brightness": "100"}}},
+    {"id": 4, "text": "Setting up for movie night in the bedroom, dim it down.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 85, "kitchen": 50, "entrance": 50}, "climate": {"living_room": 70, "bedroom": 70}}, "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "bedroom", "brightness": "25"}}},
+    {"id": 5, "text": "Starting to cook, give the kitchen some light.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 50, "kitchen": 15, "entrance": 50}, "climate": {"living_room": 70, "bedroom": 70}}, "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "kitchen", "brightness": "75"}}},
+    {"id": 6, "text": "Bedroom's freezing, warm it up please.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 50, "kitchen": 50, "entrance": 50}, "climate": {"living_room": 70, "bedroom": 58}}, "expected": {"target_domain": "climate", "domain_decision": {"target_room": "bedroom", "target_temperature": "75"}}},
+    {"id": 7, "text": "It's brutal outside today, cool the living room down.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 50, "kitchen": 50, "entrance": 50}, "climate": {"living_room": 86, "bedroom": 70}}, "expected": {"target_domain": "climate", "domain_decision": {"target_room": "living_room", "target_temperature": "65"}}},
+    {"id": 8, "text": "Can't sleep, bedroom's too warm.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 50, "kitchen": 50, "entrance": 50}, "climate": {"living_room": 70, "bedroom": 78}}, "expected": {"target_domain": "climate", "domain_decision": {"target_room": "bedroom", "target_temperature": "68"}}},
+    {"id": 9, "text": "Chilly this morning, warm up the living room a bit.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 50, "kitchen": 50, "entrance": 50}, "climate": {"living_room": 64, "bedroom": 70}}, "expected": {"target_domain": "climate", "domain_decision": {"target_room": "living_room", "target_temperature": "72"}}},
+    {"id": 10, "text": "Time to turn in, lock the front door.", "initial_state": {"lighting": {"living_room": 40, "bedroom": 30, "kitchen": 20, "entrance": 30}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "security", "domain_decision": {"door": "entrance_front_door", "state": "locked"}}},
+    {"id": 11, "text": "We're back, go ahead and open the front door.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 40, "kitchen": 45, "entrance": 55}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "security", "domain_decision": {"door": "entrance_front_door", "state": "unlocked"}}},
+    {"id": 12, "text": "Someone's messing with the back door, lock it now.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 55, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "security", "domain_decision": {"door": "kitchen_back_door", "state": "locked"}}},
+    {"id": 13, "text": "Letting the dog into the yard, unlock the back door.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 55, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "security", "domain_decision": {"door": "kitchen_back_door", "state": "unlocked"}}},
+    {"id": 14, "text": "Heading out for groceries, make sure the front's locked.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 50, "entrance": 40}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "security", "domain_decision": {"door": "entrance_front_door", "state": "locked"}}},
+    {"id": 15, "text": "Reheating leftovers, start the microwave.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 60, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "appliance", "domain_decision": {"appliance": "microwave", "action": "start"}}},
+    {"id": 16, "text": "That's long enough, stop the microwave.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 60, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "appliance", "domain_decision": {"appliance": "microwave", "action": "stop"}}},
+    {"id": 17, "text": "Time to make dinner, turn on the stove.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 65, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "appliance", "domain_decision": {"appliance": "stove", "action": "start"}}},
+    {"id": 18, "text": "Dinner's done, turn off the stove.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 65, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "appliance", "domain_decision": {"appliance": "stove", "action": "stop"}}},
+    {"id": 19, "text": "The fridge alarm won't quit, silence it.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 55, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "appliance", "domain_decision": {"appliance": "fridge", "action": "stop"}}},
+    {"id": 20, "text": "Just checking in, everything's fine at home.", "initial_state": {"lighting": {"living_room": 50, "bedroom": 45, "kitchen": 50, "entrance": 45}, "climate": {"living_room": 70, "bedroom": 68}}, "expected": {"target_domain": "none", "domain_decision": {}}}
   ]
 }

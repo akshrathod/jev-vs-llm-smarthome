@@ -11,17 +11,23 @@
       <header class="topbar">
         <div>
           <h1>Smart Home Hub Benchmark</h1>
-          <p>System A LLM decisions vs System B Jev decisions with fallback badges.</p>
+          <p>System A LLM decision vs System B Jev decision with fallback badges.</p>
         </div>
-        <label class="file-button">
-          Load JSON
-          <input id="file-input" type="file" accept="application/json" />
-        </label>
+        <div class="file-load">
+          <label class="file-button">
+            Load JSON
+            <input id="file-input" type="file" accept="application/json" />
+          </label>
+          <div id="file-status" class="file-status" role="status">No JSON loaded.</div>
+        </div>
       </header>
 
       <section class="controls">
+        <button id="prev" type="button">Prev</button>
         <button id="play" type="button">Play</button>
+        <button id="next" type="button">Next</button>
         <button id="reset" type="button">Reset</button>
+        <button id="theme-toggle" type="button">Dark mode</button>
         <label class="speed-control">
           Speed
           <input id="speed" type="range" min="1" max="50" step="1" value="2" />
@@ -30,10 +36,21 @@
         <span id="event-label">No run loaded</span>
       </section>
 
+      <section class="live-command">
+        <h2>Live Command</h2>
+        <form id="live-form" class="live-form">
+          <label for="live-command">Command</label>
+          <input id="live-command" type="text" autocomplete="off" placeholder="Try: Make the bedroom warmer" />
+          <button id="live-run" type="submit">Run</button>
+          <button id="reset-defaults" type="button">Reset to defaults</button>
+        </form>
+        <div class="details" id="live-status">Runs locally through both systems when the Flask server is active.</div>
+      </section>
+
       <section class="plans">
         <article class="system" data-system="A">
           <div class="system-heading">
-            <h2>System A</h2>
+            <h2>System A - LLM decision</h2>
             <span id="elapsed-A">0 ms</span>
           </div>
           <div class="event-line" id="event-A">No record loaded</div>
@@ -42,7 +59,7 @@
         </article>
         <article class="system" data-system="B">
           <div class="system-heading">
-            <h2>System B</h2>
+            <h2>System B - Jev decision</h2>
             <span id="elapsed-B">0 ms</span>
           </div>
           <div class="event-line" id="event-B">No record loaded</div>

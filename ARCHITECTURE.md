@@ -57,6 +57,17 @@ System A uses one chat-completions JSON call for the selected domain decision.
 
 System B uses one Jev Decisions API call for the selected domain decision.
 
+### System B Confidence Thresholds
+
+System B applies the LLM fallback when a Jev answer's confidence is below the threshold for that decision:
+
+- `security`: `0.8`
+- `climate`: `0.65`
+- `appliance`: `0.65`
+- `lighting`: `0.5`
+
+These thresholds differ by domain because higher-stakes domains require more confidence before trusting Jev's answer unsupervised. Security actions use the highest threshold because lock decisions are riskier; lighting uses the lowest threshold because an imperfect lighting choice is lower impact. Climate and appliance decisions sit between those two.
+
 ## Calls Per Event
 
 For ordinary actionable events:

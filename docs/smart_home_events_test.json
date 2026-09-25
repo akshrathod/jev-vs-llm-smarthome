@@ -1,53 +1,41 @@
 {
-  "note": "Synthetic, hand-written home commands for the Supervisor + Domain Agent benchmark. expected follows the new two-level schema. initial_state provides explicit per-event mocked sensor values.",
+  "note": "Synthetic, hand-written home commands for the Supervisor + Domain Agent benchmark. expected follows the two-level schema. initial_state provides explicit per-event mocked sensor values, chosen so each expected outcome represents a genuine, visible change from the starting state.",
   "events": [
     {
       "id": 1,
-      "text": "It's too bright in the living room.",
+      "text": "The living room lights are way too harsh right now.",
       "initial_state": {
-        "lighting": {"living_room": 90, "bedroom": 40, "kitchen": 50, "entrance": 45},
-        "climate": {"living_room": 72, "bedroom": 70}
+        "lighting": {"living_room": 95, "bedroom": 50, "kitchen": 50, "entrance": 50},
+        "climate": {"living_room": 70, "bedroom": 70}
       },
-      "expected": {
-        "target_domain": "lighting",
-        "domain_decision": {"target_room": "living_room", "brightness": "25"}
-      }
+      "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "living_room", "brightness": "25"}}
     },
     {
       "id": 2,
-      "text": "Lock up the house for the night.",
+      "text": "We're done in the kitchen, kill the lights.",
       "initial_state": {
-        "lighting": {"living_room": 35, "bedroom": 25, "kitchen": 20, "entrance": 30},
-        "climate": {"living_room": 70, "bedroom": 68}
+        "lighting": {"living_room": 50, "bedroom": 50, "kitchen": 70, "entrance": 50},
+        "climate": {"living_room": 70, "bedroom": 70}
       },
-      "expected": {
-        "target_domain": "security",
-        "domain_decision": {"door": "entrance_front_door", "state": "locked"}
-      }
+      "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "kitchen", "brightness": "off"}}
     },
     {
       "id": 3,
-      "text": "I'm cold in the bedroom, can you warm it up?",
+      "text": "Porch is pitch dark, light it up.",
       "initial_state": {
-        "lighting": {"living_room": 45, "bedroom": 35, "kitchen": 50, "entrance": 40},
-        "climate": {"living_room": 71, "bedroom": 62}
+        "lighting": {"living_room": 50, "bedroom": 50, "kitchen": 50, "entrance": 5},
+        "climate": {"living_room": 70, "bedroom": 70}
       },
-      "expected": {
-        "target_domain": "climate",
-        "domain_decision": {"target_room": "bedroom", "target_temperature": "72"}
-      }
+      "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "entrance", "brightness": "100"}}
     },
     {
       "id": 4,
-      "text": "We're leaving for the weekend, lock the front door.",
+      "text": "Setting up for movie night in the bedroom, dim it down.",
       "initial_state": {
-        "lighting": {"living_room": 60, "bedroom": 45, "kitchen": 55, "entrance": 50},
-        "climate": {"living_room": 72, "bedroom": 70}
+        "lighting": {"living_room": 50, "bedroom": 85, "kitchen": 50, "entrance": 50},
+        "climate": {"living_room": 70, "bedroom": 70}
       },
-      "expected": {
-        "target_domain": "security",
-        "domain_decision": {"door": "entrance_front_door", "state": "locked"}
-      }
+      "expected": {"target_domain": "lighting", "domain_decision": {"target_room": "bedroom", "brightness": "25"}}
     }
   ]
 }

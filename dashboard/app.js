@@ -29,8 +29,11 @@ const liveForm = document.querySelector("#live-form");
 const liveCommandInput = document.querySelector("#live-command");
 const liveStatus = document.querySelector("#live-status");
 const resetDefaultsButton = document.querySelector("#reset-defaults");
+const raceA = document.querySelector("#race-a");
+const raceB = document.querySelector("#race-b");
+const raceTotal = document.querySelector("#race-total");
 
-applyTheme(localStorage.getItem("smartHomeTheme") || "light");
+applyTheme(localStorage.getItem("smartHomeTheme") || "dark");
 
 fileInput.addEventListener("change", async (event) => {
   const file = event.target.files[0];
@@ -138,7 +141,7 @@ function loadLiveRun(payload) {
   renderAt(elapsed);
   state.baselineHomeState = finalHomeState();
   summaryEl.innerHTML = formatSummary(payload.summary || {}, true, payload.records || []);
-  liveStatus.innerHTML = `<strong class="comparison-sentence">${escapeHtml(liveComparisonSentence(payload.records || []))}</strong>`;
+  liveStatus.innerHTML = liveComparisonSentence(payload.records || []);
 }
 
 async function runLiveCommand(event) {
@@ -175,6 +178,8 @@ function resetToDefaults() {
   state.pausedAt = 0;
   summaryEl.textContent = "Live state reset to defaults.";
   liveStatus.textContent = "Live state reset to defaults.";
+  fileStatus.textContent = "Reset to defaults -- no run loaded.";
+  fileStatus.className = "file-status";
   renderAt(0);
 }
 
@@ -214,8 +219,8 @@ function resetPlayback() {
   stopPlayback();
   state.pausedAt = 0;
   state.currentIndex = {
-    A: state.recordsBySystem.A.length ? 0 : -1,
-    B: state.recordsBySystem.B.length ? 0 : -1,
+    A: -1,
+    B: -1,
   };
   renderAt(0);
 }
@@ -228,7 +233,7 @@ function stepPlayback(delta) {
   const currentPosition = currentPlaybackEventPosition(eventIds);
   const nextPosition = Math.max(0, Math.min(eventIds.length - 1, currentPosition + delta));
   state.pausedAt = elapsedForEventId(eventIds[nextPosition]);
-  renderAt(state.pausedAt);
+  renderSyncedEvent(nextPosition);
 }
 
 function sortedEventIds() {
@@ -237,13 +242,11 @@ function sortedEventIds() {
 }
 
 function currentPlaybackEventPosition(eventIds) {
-  let position = -1;
-  for (let i = 0; i < eventIds.length; i += 1) {
-    if (state.pausedAt >= elapsedForEventId(eventIds[i])) {
-      position = i;
-    }
-  }
-  return position;
+  const currentIds = ["A", "B"]
+    .map((system) => state.recordsBySystem[system][state.currentIndex[system]]?.event.id)
+    .filter((id) => typeof id !== "undefined");
+  if (!currentIds.length) return -1;
+  return Math.max(...currentIds.map((id) => eventIds.indexOf(id)));
 }
 
 function elapsedForEventId(eventId) {
@@ -282,12 +285,53 @@ function renderAt(elapsedMs) {
     state.currentIndex[system] = index;
     renderSystem(system, records[index] || null, elapsedMs, records);
   }
+  renderRaceTimeline(elapsedMs);
   if (state.mode === "replay") {
     state.baselineHomeState = currentlyRenderedHomeState();
   }
   eventLabel.textContent = hasRecords()
     ? `Shared clock: ${formatMs(elapsedMs)} recorded time`
     : "No run loaded";
+}
+
+function renderSyncedEvent(eventIndex) {
+  for (const system of ["A", "B"]) {
+    const records = state.recordsBySystem[system];
+    const index = Math.min(eventIndex, records.length - 1);
+    state.currentIndex[system] = index;
+    const elapsed = index >= 0 ? records[index].playbackEndMs : 0;
+    renderSystem(system, records[index] || null, elapsed, records);
+  }
+  renderRaceTimeline();
+  if (state.mode === "replay") {
+    state.baselineHomeState = currentlyRenderedHomeState();
+  }
+  eventLabel.textContent = hasRecords()
+    ? `Event ${eventIndex + 1} of ${sortedEventIds().length}`
+    : "No run loaded";
+}
+
+function renderRaceTimeline() {
+  const eventCount = sortedEventIds().length;
+  const elapsedA = elapsedForCurrentSystem("A");
+  const elapsedB = elapsedForCurrentSystem("B");
+  raceA.style.left = `${eventProgressPercent(state.currentIndex.A, eventCount)}%`;
+  raceB.style.left = `${eventProgressPercent(state.currentIndex.B, eventCount)}%`;
+  raceA.querySelector("strong").textContent = formatMs(elapsedA);
+  raceB.querySelector("strong").textContent = formatMs(elapsedB);
+  raceTotal.textContent = eventCount ? `${eventCount} events` : "0 events";
+}
+
+function elapsedForCurrentSystem(system) {
+  const records = state.recordsBySystem[system];
+  const index = state.currentIndex[system];
+  if (index < 0) return 0;
+  return records[index]?.playbackEndMs || 0;
+}
+
+function eventProgressPercent(index, eventCount) {
+  if (!eventCount || index < 0) return 0;
+  return Math.max(0, Math.min(100, ((index + 1) / eventCount) * 100));
 }
 
 function indexForElapsed(records, elapsedMs) {
@@ -579,7 +623,7 @@ function formatSummary(summary, hideEvaluation = false, records = []) {
   if (!hideEvaluation) {
     const sentence = aggregateComparisonSentence(summary, records);
     if (sentence) {
-      lines.push(`<div class="comparison-sentence"><strong>${sentence}</strong></div>`);
+      lines.push(`<div class="comparison-sentence">${sentence}</div>`);
     }
   }
   lines.push(...Object.entries(summary)
@@ -625,9 +669,13 @@ function aggregateComparisonSentence(summary, records) {
   const e2eTotals = endToEndTotals(records);
   const endToEndSpeedPart = comparisonPart(e2eTotals.A.latencyMs, e2eTotals.B.latencyMs, "faster", "slower");
   const endToEndCostPart = comparisonPart(e2eTotals.A.costUsd, e2eTotals.B.costUsd, "cheaper", "more expensive");
-  const decisionSentence = `System B's decision layer was ${decisionSpeedPart} and ${decisionCostPart} than System A's.`;
-  if (!fallbackOccurred(records)) return decisionSentence;
-  return `${decisionSentence} Including fallback and tool overhead, System B was ${endToEndSpeedPart} and ${endToEndCostPart} end-to-end.`;
+  const groups = [
+    comparisonGroup("Decision layer", decisionSpeedPart, decisionCostPart),
+  ];
+  if (fallbackOccurred(records)) {
+    groups.push(comparisonGroup("End-to-end", endToEndSpeedPart, endToEndCostPart));
+  }
+  return `<div class="comparison-readout">${groups.join("")}</div>`;
 }
 
 function liveComparisonSentence(records) {
@@ -645,10 +693,38 @@ function liveComparisonSentence(records) {
   const endToEndSpeedPart = comparisonPart(e2eTotals.A.latencyMs, e2eTotals.B.latencyMs, "faster", "slower");
   const endToEndCostPart = comparisonPart(e2eTotals.A.costUsd, e2eTotals.B.costUsd, "cheaper", "more expensive");
   const bFallback = fallbackOccurred([bySystem.B].filter(Boolean));
-  const reason = latencyB > latencyA && bFallback ? ", due to a low-confidence fallback" : "";
-  const decisionSentence = `For this command, System B's decision layer was ${decisionSpeedPart} and ${decisionCostPart} than System A's${reason}.`;
-  if (!fallbackOccurred(records)) return decisionSentence;
-  return `${decisionSentence} Including fallback and tool overhead, System B was ${endToEndSpeedPart} and ${endToEndCostPart} end-to-end.`;
+  const groups = [
+    comparisonGroup(bFallback ? "Decision layer with fallback" : "Decision layer", decisionSpeedPart, decisionCostPart),
+  ];
+  if (fallbackOccurred(records)) {
+    groups.push(comparisonGroup("End-to-end", endToEndSpeedPart, endToEndCostPart));
+  }
+  return `<div class="comparison-readout">${groups.join("")}</div>`;
+}
+
+function comparisonGroup(title, speedPart, costPart) {
+  return `
+    <div class="comparison-group">
+      <div class="comparison-title">${title}</div>
+      <div class="stat-row">
+        ${statCard(speedPart)}
+        ${statCard(costPart)}
+      </div>
+    </div>
+  `;
+}
+
+function statCard(part) {
+  return `
+    <div class="stat-card" style="--winner-color: ${systemColor(part.winner)}">
+      <span class="stat-number">${part.multiplier}</span>
+      <span class="stat-label">${part.label}</span>
+    </div>
+  `;
+}
+
+function systemColor(system) {
+  return system === "A" ? "var(--system-a)" : "var(--system-b)";
 }
 
 function fallbackOccurred(records) {
@@ -681,13 +757,15 @@ function displaySystem(system) {
 }
 
 function comparisonPart(aValue, bValue, betterWord, worseWord) {
-  if (aValue === 0 && bValue === 0) return `1.0x ${betterWord}`;
+  if (aValue === 0 && bValue === 0) {
+    return { multiplier: "1.0x", label: betterWord, winner: "B" };
+  }
   if (bValue <= aValue) {
     const ratio = aValue === 0 ? 1 : aValue / Math.max(bValue, Number.EPSILON);
-    return `${ratio.toFixed(1)}x ${betterWord}`;
+    return { multiplier: `${ratio.toFixed(1)}x`, label: betterWord, winner: "B" };
   }
   const ratio = bValue / Math.max(aValue, Number.EPSILON);
-  return `${ratio.toFixed(1)}x ${worseWord}`;
+  return { multiplier: `${ratio.toFixed(1)}x`, label: worseWord, winner: "A" };
 }
 
 function formatMs(ms) {

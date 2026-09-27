@@ -13,6 +13,16 @@ decision-making layers head to head on speed, cost, and accuracy:
 Both systems share the exact same architecture, agents, tools, and event data.
 The only thing that differs is who makes the decision.
 
+## Demo
+
+Live command comparison, 2x speed (26s):
+
+<video src="https://github.com/user-attachments/assets/146fdb61-60d1-4dc8-98be-698a994d18df" controls width="600"></video>
+
+Full 20-event benchmark run (47s):
+
+<video src="https://github.com/user-attachments/assets/2a9804be-2e1c-4ea4-ae52-58466bd4ac7f" controls width="600"></video>
+
 ## Architecture
 
 A supervisor decides which one of four domain agents should handle an incoming

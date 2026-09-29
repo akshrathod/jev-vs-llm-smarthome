@@ -1,3 +1,6 @@
+
+
+
 # Smart Home Hub Benchmark: LLM vs Jev
 
 A multi-agent smart-home simulation, built specifically to put two
@@ -12,6 +15,16 @@ decision-making layers head to head on speed, cost, and accuracy:
 
 Both systems share the exact same architecture, agents, tools, and event data.
 The only thing that differs is who makes the decision.
+
+## Demo
+
+Live command comparison, 2x speed (26s):
+
+<video src="https://github.com/user-attachments/assets/76032919-38c0-43b3-ae32-786681f5ed39" controls width="600"></video>
+
+Full 20-event benchmark run (47s):
+
+<video src="https://github.com/user-attachments/assets/be76798a-54b0-4b19-b796-dac8c8e53d41" controls width="600"></video>
 
 ## Architecture
 

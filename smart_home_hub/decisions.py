@@ -29,6 +29,54 @@ DOMAIN_CONFIDENCE_THRESHOLDS = {
     "lighting": 0.5,
 }
 
+DOMAIN_CRITERIA = {
+    "climate": "Climate owns room temperature sensing and thermostat control for comfort commands about being too hot, too cold, warming up, cooling down, heat waves, chilly rooms, or target temperatures.",
+    "lighting": "Lighting owns room light sensing and light control for commands about brightness, darkness, harsh lights, dimming, turning lights on, turning lights off, or setting a light level.",
+    "security": "Security owns door lock control for commands about locking, unlocking, securing, opening access, front doors, back doors, or entry safety.",
+    "appliance": "Appliance owns controllable kitchen appliances for commands about starting or stopping the fridge, microwave, or stove.",
+    "none": "No smart-home domain should act when the event is only a status check, small talk, or does not request a home automation action.",
+}
+
+FIELD_CRITERIA = {
+    "target_room": {
+        "living_room": "The command explicitly mentions the living room or naturally refers to the main shared living area.",
+        "bedroom": "The command explicitly mentions the bedroom or naturally refers to sleeping, bedtime, or the bedroom area.",
+        "kitchen": "The command explicitly mentions the kitchen or naturally refers to kitchen lights or kitchen activity.",
+        "entrance": "The command refers to the entrance, porch, entryway, front area, or doorway lighting.",
+    },
+    "brightness": {
+        "off": "Turn the light fully off at 0% brightness when the user asks to kill, shut off, or turn off lights.",
+        "25": "Set a low dim level for requests to dim harsh lights, make a room less bright, or create a subdued mood.",
+        "50": "Set a moderate everyday level when the user wants balanced light, not notably dim or bright.",
+        "75": "Set a bright level when the user wants more light but not the maximum possible brightness.",
+        "100": "Set maximum brightness when the user says it is dark, asks to light something up, or needs full illumination.",
+    },
+    "target_temperature": {
+        "65": "Choose a cool target for strong cooling requests, heat-wave language, or rooms that should become clearly cooler.",
+        "68": "Choose a mildly cool target for ordinary cooling requests or when the room is somewhat too warm.",
+        "72": "Choose a neutral comfort target when the request implies normal room temperature or only a slight adjustment.",
+        "75": "Choose a warm target when the user asks to warm up a cool room.",
+        "78": "Choose a very warm target for strong heating requests or rooms described as very cold.",
+    },
+    "door": {
+        "entrance_front_door": "The command refers to the front door, entrance door, porch door, main entry, or general front access.",
+        "kitchen_back_door": "The command refers to the back door, kitchen back door, rear entrance, or access through the kitchen.",
+    },
+    "state": {
+        "locked": "Lock or secure the selected door so it cannot be opened freely.",
+        "unlocked": "Unlock or open access through the selected door.",
+    },
+    "appliance": {
+        "fridge": "The command refers to the fridge or refrigerator, including alarms or stopping fridge-related behavior.",
+        "microwave": "The command refers to the microwave or heating food in the microwave.",
+        "stove": "The command refers to the stove, burner, cooktop, or stovetop cooking.",
+    },
+    "action": {
+        "start": "Start, turn on, or begin running the selected appliance.",
+        "stop": "Stop, turn off, silence, or end operation of the selected appliance.",
+    },
+}
+
 
 def _field(
     value: str,
@@ -66,8 +114,9 @@ def _supervisor_question(event: Event) -> dict[str, dict[str, object]]:
     return {
         "target_domain": {
             "type": "choice",
-            "instructions": f"Which single smart-home domain should handle this event: '{event['text']}'?",
+            "instructions": "Which single smart-home domain should handle this event?",
             "options": list(TARGET_DOMAINS),
+            "criteria": {option: DOMAIN_CRITERIA[option] for option in TARGET_DOMAINS},
         }
     }
 
@@ -78,52 +127,60 @@ def _domain_questions(domain: TargetDomain, event: Event) -> dict[str, dict[str,
         return {
             "target_room": {
                 "type": "choice",
-                "instructions": f"For the climate command '{text}', which room should be adjusted?",
+                "instructions": "Which room should the climate action adjust?",
                 "options": list(CLIMATE_ROOMS),
+                "criteria": {option: FIELD_CRITERIA["target_room"][option] for option in CLIMATE_ROOMS},
             },
             "target_temperature": {
                 "type": "choice",
-                "instructions": f"For the climate command '{text}', what target temperature should the thermostat use?",
+                "instructions": "What target temperature should the thermostat use?",
                 "options": list(CLIMATE_TARGET_TEMPERATURES),
+                "criteria": {option: FIELD_CRITERIA["target_temperature"][option] for option in CLIMATE_TARGET_TEMPERATURES},
             },
         }
     if domain == "lighting":
         return {
             "target_room": {
                 "type": "choice",
-                "instructions": f"For the lighting command '{text}', which room should be changed?",
+                "instructions": "Which room should the lighting action change?",
                 "options": list(LIGHTING_ROOMS),
+                "criteria": {option: FIELD_CRITERIA["target_room"][option] for option in LIGHTING_ROOMS},
             },
             "brightness": {
                 "type": "choice",
-                "instructions": f"For the lighting command '{text}', what brightness percentage should the light use?",
+                "instructions": "What brightness percentage should the light use?",
                 "options": list(LIGHTING_BRIGHTNESS),
+                "criteria": {option: FIELD_CRITERIA["brightness"][option] for option in LIGHTING_BRIGHTNESS},
             },
         }
     if domain == "security":
         return {
             "door": {
                 "type": "choice",
-                "instructions": f"For the security command '{text}', which door should be locked or unlocked?",
+                "instructions": "Which door should be locked or unlocked?",
                 "options": list(SECURITY_DOORS),
+                "criteria": {option: FIELD_CRITERIA["door"][option] for option in SECURITY_DOORS},
             },
             "state": {
                 "type": "choice",
-                "instructions": f"For the security command '{text}', should the door be locked or unlocked?",
+                "instructions": "Should the selected door be locked or unlocked?",
                 "options": list(LOCK_STATES),
+                "criteria": {option: FIELD_CRITERIA["state"][option] for option in LOCK_STATES},
             },
         }
     if domain == "appliance":
         return {
             "appliance": {
                 "type": "choice",
-                "instructions": f"For the appliance command '{text}', which appliance should be controlled?",
+                "instructions": "Which appliance should be controlled?",
                 "options": list(APPLIANCES),
+                "criteria": {option: FIELD_CRITERIA["appliance"][option] for option in APPLIANCES},
             },
             "action": {
                 "type": "choice",
-                "instructions": f"For the appliance command '{text}', should the appliance start or stop?",
+                "instructions": "Should the selected appliance start or stop?",
                 "options": list(APPLIANCE_ACTIONS),
+                "criteria": {option: FIELD_CRITERIA["action"][option] for option in APPLIANCE_ACTIONS},
             },
         }
     return {}
@@ -163,8 +220,10 @@ class LLMDecisionLayer(DecisionLayer):
 
     def decide_supervisor(self, event: Event) -> tuple[SupervisorDecision, dict[str, dict[str, float]]]:
         metrics = empty_metrics()
+        domain_definitions = {option: DOMAIN_CRITERIA[option] for option in TARGET_DOMAINS}
         system = (
             "You are a smart-home supervisor. Return strict JSON only. "
+            f"Use these domain definitions: {domain_definitions}. "
             f"Choose target_domain from {list(TARGET_DOMAINS)}. "
             'Return {"target_domain": {"value": one_option, "confidence": number}}.'
         )
@@ -179,10 +238,12 @@ class LLMDecisionLayer(DecisionLayer):
         if not questions:
             return None, metrics
         schema = {key: question["options"] for key, question in questions.items()}
+        criteria = {key: question["criteria"] for key, question in questions.items()}
         context = _domain_context(domain, event)
         system = (
             f"You are the {domain} smart-home domain agent. Return strict JSON only. "
             f"Choose exactly one value for each field from this schema: {schema}. "
+            f"Use these option definitions: {criteria}. "
             'Return {field: {"value": one_option, "confidence": number}}.'
         )
         user = event["text"] if not context else f"{event['text']}\n{context}"

@@ -78,6 +78,7 @@ class OpenRouterClient:
             "model": model or self.settings.chat_model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "response_format": {"type": "json_object"},
+            "reasoning_effort": "low",
             "temperature": 0,
         }
         response, latency_ms, retried = self._post(self.settings.chat_url, payload)
@@ -106,7 +107,10 @@ class OpenRouterClient:
         return {
             "type": "choice",
             "instructions": str(question["instructions"]),
-            "criteria": {option: option for option in question["options"]},
+            "criteria": {
+                str(option): str(question.get("criteria", {}).get(option, option))
+                for option in question["options"]
+            },
         }
 
     @staticmethod

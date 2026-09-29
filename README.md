@@ -22,6 +22,12 @@ command, then that agent decides its specific action:
 Command -> Supervisor (picks a domain) -> Domain Agent (picks room + action) -> Tool call -> Confirmation
 ```
 
+Note: "tool call" here means a deterministic Python function (e.g. `set_light`,
+`adjust_thermostat`), not native LLM/Jev function-calling. The model only
+outputs structured fields; a separate dispatch step (`agents.py`) calls the
+matching function based on those fields. Neither system's API request ever
+includes a `tools`/`functions` parameter.
+
 If the supervisor determines no domain applies, the graph stops after that
 decision instead of routing to an agent.
 
@@ -34,6 +40,13 @@ Both systems make exactly **2 decision calls per command** (supervisor, then
 domain agent). System B adds a small conditional fallback call only when Jev's
 own confidence falls below a risk-weighted threshold (security requires more
 confidence than lighting before it's trusted unsupervised).
+
+Jev is not given an easier task. Both systems receive the same command and the
+same decision definitions, but they are represented differently: System A gets
+chat-style system/user prompts, while System B gets Jev's structured
+`state`/`questions`/`criteria` payload. That structured Jev payload can be
+larger in token count even though the decision model is still faster and cheaper
+overall.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full breakdown.
 
@@ -91,19 +104,19 @@ Decisions are scored two ways:
 
 ## Results
 
-From a 20-event benchmark run (System A: `openai/gpt-6-luna`, System B: `typesafe/jev-1.13`):
+From a 100-command benchmark run (System A: `openai/gpt-6-luna`, System B: `typesafe/jev-1.13`):
 
 | Metric | System A (LLM) | System B (Jev) |
 |---|---|---|
-| Decision-layer speed (excludes fallback) | 111.2 s total | 7.2 s total (**~15.4x faster**) |
-| End-to-end speed (includes fallback) | 111.2 s total | 28.6 s total (**~3.9x faster**) |
-| Decision-layer cost (excludes fallback) | $0.00141 | $0.00068 (**~2.1x cheaper**) |
-| End-to-end cost (includes fallback) | $0.00141 | $0.00091 (**~1.5x cheaper**) |
-| Fallback rate | n/a | 10.3% |
-| Categorical accuracy (domain, room, door, appliance) | 100% | 100% |
-| Magnitude directional accuracy (brightness, temperature) | 88.9% | 77.8% |
+| Decision-layer speed (excludes fallback) | 336.3 s total | 39.1 s total (**~8.6x faster**) |
+| End-to-end speed (includes fallback) | 336.3 s total | 75.9 s total (**~4.4x faster**) |
+| Decision-layer cost (excludes fallback) | $0.00873 | $0.00402 (**~2.2x cheaper**) |
+| End-to-end cost (includes fallback) | $0.00873 | $0.00452 (**~1.9x cheaper**) |
+| Fallback rate | n/a | 7.0% |
+| Categorical accuracy (domain, room, door, appliance) | 100% | 99.1% |
+| Magnitude directional accuracy (brightness, temperature) | 75.6% | 84.4% |
 | Inter-system domain agreement | 100% | |
-| Inter-system domain-field agreement | 94.7% | |
+| Inter-system domain-field agreement | 86.5% | |
 
 The decision layer alone is dramatically faster and cheaper. Once System B's
 own confidence-based fallback calls are included honestly, the advantage
@@ -112,14 +125,15 @@ different questions: decision-layer speed shows Jev's raw capability, while
 end-to-end speed shows what actually happens once its own uncertainty is
 accounted for.
 
-Both systems agree perfectly on *which* domain and *which* room/door/appliance
-to act on. In this run, Jev's fallback mechanism twice flipped an
-already-correct temperature decision into a less appropriate one, pulling its
-magnitude accuracy below System A's. This is a genuine, reproducible
-tradeoff, not noise: the same speed/cost advantage that makes Jev attractive
-also means its uncertainty on subjective magnitude questions surfaces as a
-real, sometimes counterproductive, fallback call, at real added cost, rather
-than being silently absorbed the way an LLM's own uncertainty is.
+Both systems agreed perfectly on *which domain* should handle each command.
+The remaining differences were in the selected domain fields: exact categorical
+choices such as lock/unlock or start/stop, and subjective magnitude choices
+such as brightness or target temperature. In this 100-command run, System B
+triggered fallback on 19 of 270 checked fields, and 15 of those fallbacks
+changed Jev's original answer. Some fallback changes helped; some overrode an
+already reasonable or correct Jev choice. This is a genuine tradeoff: Jev's
+speed/cost advantage is real, but confidence-based fallback is not automatically
+safer just because it uses a general LLM as the backup.
 
 ## Notes
 - All sensor readings and device states are mocked. This does not control real

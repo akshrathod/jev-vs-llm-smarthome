@@ -53,6 +53,12 @@ Appliance outputs:
 
 The appliance tool is `control_appliance(appliance, action)`.
 
+### Tool Execution Is Not Native Function-Calling
+
+In this project, "tool" means a deterministic Python function in `tools.py`, not an OpenAI-style native function-calling or tool-calling API. System A and System B only output structured decision fields such as domain, room, brightness, target temperature, door, state, appliance, and action.
+
+After those fields are decided, `agents.py` uses plain conditional logic to dispatch to the matching Python function. For example, if the chosen domain is `lighting`, it reads the decided `target_room` and `brightness`, derives the on/off state, and calls `set_light(room, state, brightness)`. The OpenRouter chat-completions payload for System A never includes a `tools` or `functions` parameter, and the Jev Decisions API payload for System B does not use native function-calling either.
+
 System A uses one chat-completions JSON call for the selected domain decision.
 
 System B uses one Jev Decisions API call for the selected domain decision.
